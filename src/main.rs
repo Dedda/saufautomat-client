@@ -1,14 +1,18 @@
+extern crate serde;
+#[macro_use]
 extern crate serde_json;
+extern crate serialport;
 
 use std::io;
 use std::collections::HashMap;
 use std::time::Duration;
 use serialport::SerialPortInfo;
+use serde::Serialize;
 
 mod parse;
 mod serial;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Beverage {
     pub name: String,
     pub count: usize,
@@ -29,6 +33,7 @@ fn main() {
         println!("Found on port: {}", arduino_port.port_name);
         let bevs = com_loop(arduino_port).unwrap();
         println!("Found drinks in {} files! Yay!", bevs.len());
+        println!("\n\n\n{}", serde_json::to_string_pretty(&json!(bevs)).unwrap());
     } else {
         println!("Could not find any connected Arduino boards");
     }
