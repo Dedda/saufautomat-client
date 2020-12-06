@@ -2,15 +2,19 @@ extern crate serde;
 #[macro_use]
 extern crate serde_json;
 extern crate serialport;
+#[macro_use]
+extern crate rouille;
 
 use std::io;
 use std::collections::HashMap;
 use std::time::Duration;
 use serialport::SerialPortInfo;
 use serde::Serialize;
+use yatl::{duration_to_human_string, Timer};
 
 mod parse;
 mod serial;
+mod server;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Beverage {
@@ -27,13 +31,16 @@ impl Beverage {
     }
 }
 
-fn main() {
+pub fn main() {
     println!("Looking for Arduino via USB...");
     if let Some(arduino_port) = serial::find_arduino() {
         println!("Found on port: {}", arduino_port.port_name);
         let bevs = com_loop(arduino_port).unwrap();
         println!("Found drinks in {} files! Yay!", bevs.len());
-        println!("\n\n\n{}", serde_json::to_string_pretty(&json!(bevs)).unwrap());
+        let count: usize = bevs.iter().map(|(_, v)| v.iter().map(|b| b.count).sum::<usize>()).sum();
+        println!("This adds up to {} drinks. WOW!", count);
+
+        server::serve(bevs);
     } else {
         println!("Could not find any connected Arduino boards");
     }
@@ -71,7 +78,9 @@ fn com_loop(port: SerialPortInfo) -> Result<HashMap<String, Vec<Beverage>>, pars
     }
     buffer = String::new();
     received_anything = false;
-    println!("Receiving dump...");
+    print!("Receiving dump... ");
+    let mut timer = Timer::new();
+    let _ = timer.start();
     loop {
         match port.read(serial_buf.as_mut_slice()) {
             Ok(t) => {
@@ -81,6 +90,8 @@ fn com_loop(port: SerialPortInfo) -> Result<HashMap<String, Vec<Beverage>>, pars
                 if let Some(pos) = buffer.find("%$") {
                     let buffer = &buffer[..pos+2];
                     let _ = port.write("exit\n".as_bytes());
+                    let dur = timer.lap().unwrap();
+                    println!(" OK [{}] [{} bytes]", duration_to_human_string(&dur), buffer.as_bytes().len());
                     return parse::parse(&buffer);
                 }
             },          
