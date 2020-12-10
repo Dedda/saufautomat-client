@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use crate::Beverage;
 use yatl::{duration_to_human_string, Timer};
 
+mod templates;
+
 pub fn serve(bevs: HashMap<String, Vec<Beverage>>) {
     print!("Crunching numbers...");
     let mut timer = Timer::new();
@@ -15,10 +17,10 @@ pub fn serve(bevs: HashMap<String, Vec<Beverage>>) {
     rouille::start_server("localhost:3000", move |request| {
         router!(request,
             (GET) (/) => {
-                rouille::Response::text("hello world")
+                templates::index(count, bevs.len())
             },
             (GET) (/nbevs) => {
-                rouille::Response::text(format!("{} Beverages total", count))
+                templates::nbevs(count)
             },
             (GET) (/dump) => {
                 rouille::Response::text(&json)
