@@ -74,7 +74,6 @@ mod tests {
   "Non alcoholic": 1
 }%"#;
         let parsed = parse(src).unwrap();
-        println!("Parsed: {:?}", parsed);
         assert_eq!(2, parsed.len());
         let first = parsed.get("Alc_1.txt").unwrap();
         assert_eq!(4, first.len());

@@ -9,7 +9,7 @@ pub fn find_arduino() -> Option<SerialPortInfo> {
     if let Ok(ports) = available_ports() {
         for p in ports {
             if let SerialPortType::UsbPort(info) = &p.port_type {
-                if info.manufacturer.as_ref().map_or("", String::as_str).to_lowercase().contains("arduino") {
+                if is_arduino_manufacturer(&info.manufacturer) {
                     return Some(p);
                 }
             }
@@ -36,7 +36,7 @@ pub fn com_loop(port: SerialPortInfo) -> Result<HashMap<String, Vec<Beverage>>, 
                 received_anything = true;
             },
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => {
-                if received_anything && buffer.lines().last().unwrap_or("").starts_with("/>") {
+                if received_anything && is_terminal_input(buffer.lines().last()) {
                     break;
                 }
             },
@@ -79,4 +79,53 @@ pub fn com_loop(port: SerialPortInfo) -> Result<HashMap<String, Vec<Beverage>>, 
 
     }
     Err(parse::Error::CustomFormat("communication problems".into()))
+}
+
+fn is_arduino_manufacturer(manufacturer: &Option<String>) -> bool {
+    manufacturer.as_ref().map_or("", String::as_str).to_lowercase().contains("arduino")
+}
+
+fn is_terminal_input(line: Option<&str>) -> bool {
+    line.unwrap_or("").starts_with("/>")
+}
+
+#[cfg(test)]
+mod tests {
+    mod is_arduino_manufacturer {
+        use crate::serial::is_arduino_manufacturer;
+
+        #[test]
+        fn valid() {
+            assert!(is_arduino_manufacturer(&Some("Arduino Mega XYZ testdata".into())));
+        }
+
+        #[test]
+        fn invalid() {
+            assert!(!is_arduino_manufacturer(&Some("AtMega XYZ testdata".into())));
+        }
+
+        #[test]
+        fn none() {
+            assert!(!is_arduino_manufacturer(&None));
+        }
+    }
+
+    mod is_terminal_input {
+        use crate::serial::is_terminal_input;
+
+        #[test]
+        fn valid() {
+            assert!(is_terminal_input(Some("/> ")));
+        }
+
+        #[test]
+        fn invalid() {
+            assert!(!is_terminal_input(Some("\\> ")));
+        }
+
+        #[test]
+        fn none() {
+            assert!(!is_terminal_input(None));
+        }
+    }
 }
